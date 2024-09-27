@@ -92,8 +92,8 @@ void setup() {
   TCCR1B = (1 << WGM12) | (1 << CS12);  // set CS1 to 100 (Prescaler=256)
   TIMSK1 = (1 << OCIE1A);
   sei();
-  Serial.print("OCR1A:");
-  Serial.println(OCR1A, HEX);
+  // Serial.print("OCR1A:");
+  // Serial.println(OCR1A, HEX);
 
 
   instrument.SetCommandTreeBase(F("PREssure"));
