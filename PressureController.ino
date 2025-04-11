@@ -6,13 +6,15 @@ const int VERSION = 2;
 #define ADC_ADDRESS 0x48
 #include <LiquidCrystal_I2C.h>
 #include <Encoder.h>
-#include <Adafruit_MCP4725.h>
+//#include <Adafruit_MCP4725.h>
+#include <DFRobot_GP8XXX.h>
 
 #include <avr/interrupt.h>
 #include <Vrekrer_scpi_parser.h>
 #include <EEPROM.h>
 
-Adafruit_MCP4725 dac;
+
+DFRobot_GP8413 dac(/*deviceAddr=*/0x58);
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 const int CLK = 4;  // Definition der Pins. CLK an D4, DT an D3.
@@ -71,7 +73,13 @@ void setup() {
   }
   adc.setVoltageRange_mV(ADS1115_RANGE_6144);
   adc.setCompareChannels(ADS1115_COMP_0_GND);
-  dac.begin(0x60);
+
+  // setup DAC for controlling MFCs
+  while(dac.begin()!=0){
+    Serial.println("Communication with the device has encountered a failure. Please verify the integrity of the connection or ensure that the device address is properly configured.");
+    delay(1000);
+  }
+  dac.setDACOutRange(dac.eOutputRange5V);
 
   // setup LCD discply
   lcd.init();
@@ -95,6 +103,7 @@ void setup() {
   // Serial.print("OCR1A:");
   // Serial.println(OCR1A, HEX);
 
+  instrument.RegisterCommand(F("*IDN?"), &IDN);
 
   instrument.SetCommandTreeBase(F("PREssure"));
   instrument.RegisterCommand(F(":CURrent?"), &GetCurrentPressure);
@@ -173,7 +182,7 @@ void loop() {
   lcd.print(pressure_cur_str);
 
   // set the control_voltage (calculated in the PID loop)
-  dac.setVoltage(uint16_t(control_voltage), true);
+  dac.setDACOutVoltage(uint16_t(control_voltage), 0);
 
 
 
@@ -228,8 +237,8 @@ ISR(TIMER1_COMPA_vect) {
   // } else if (control_voltage > 4096) {
   //   control_voltage = 4095;
   // }
-  control_voltage = constrain(control_voltage, 0, 4095);
-  I = constrain(I, 0, 4095);
+  control_voltage = constrain(control_voltage, 0, 32766);
+  I = constrain(I, 0, 32766);
   // Serial.print("control_voltage=");
   // Serial.println(control_voltage);
 }
@@ -268,6 +277,10 @@ float readPressure(ADS1115_MUX channel) {
   return pressure;
 }
 
+
+void IDN(SCPI_C commands, SCPI_P parameters, Stream& interface) {
+  interface.println("Jan Kuhfeld,PressureController, None,0.1/0.1");
+}
 
 void GetCurrentPressure(SCPI_C commands, SCPI_P parameters, Stream& interface) {
   interface.println(pressure_cur);
